@@ -8,47 +8,192 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"regexp"
 	"strings"
 )
 
+var Seperator = " " // or \t
+
 type Asm struct {
 	w      *bufio.Writer
-	data   int
-	label  int
 	errors []string
+
 	// per function
 	name  string
 	args  int
 	stack int
+	split bool
 }
 
 func NewAsm(w io.Writer) *Asm {
-	return &Asm{
+	a := &Asm{
 		w: bufio.NewWriter(w),
 	}
+
+	a.write("\n#include \"textflag.h\"")
+	return a
 }
 
 func (a *Asm) NewFunction(name string) {
 	a.name = name
 	a.args = 0
 	a.stack = 0
+	a.split = true
 }
 
-func (a *Asm) Data(name string, data []byte) Operand {
-	if len(data)&7 != 0 {
-		return nil
-	}
-	name = fmt.Sprintf("%v_%v<>", name, a.data)
-	a.data++
-	for i := 0; i < len(data); i += 8 {
-		a.write(fmt.Sprintf("DATA\t%v+0x%02X(SB)/8, $0x%016X", name, i, data[i:i+8]))
-	}
-	// RODATA should be included with textflag.h
-	// it only works with go > 1.4 though
-	const RODATA = 8
-	a.write(fmt.Sprintf("GLOBL\t%v(SB), %v, $%v", name, RODATA, len(data)))
-	return literal(fmt.Sprintf("%v(SB)", name))
+func (a *Asm) NoSplit() {
+	a.split = false
 }
+
+func isZeroSlice(s []byte) bool {
+	for _, b := range s {
+		if b != 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
+type Data string
+
+func (d Data) String() string {
+	return fmt.Sprintf("%v(SB)", string(d))
+}
+
+func (Data) Gas() string {
+	panic("referencing GLOBL directives in unsupported opcodes is forbidden")
+}
+
+func (d Data) Offset(i int) Data {
+	if i == 0 {
+		return d
+	}
+
+	return Data(fmt.Sprintf("%v+0x%02x", string(d), i))
+}
+
+func (d Data) Address() Data {
+	return Data(fmt.Sprintf("$%v", string(d)))
+}
+
+func (a *Asm) Data(name string, data []byte) Data {
+	name = fmt.Sprintf("%v<>", name)
+
+	a.write("")
+
+	i := 0
+	for ; i < len(data); i += 8 {
+		if isZeroSlice(data[i : i+8]) {
+			continue
+		}
+
+		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/8, $0x%016x", Seperator, name, i, data[i:i+8]))
+	}
+
+	for ; i < len(data); i++ {
+		if data[i] == 0 {
+			continue
+		}
+
+		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/1, $0x%02x", Seperator, name, i, data[i]))
+	}
+
+	a.write(fmt.Sprintf("GLOBL%v%v(SB),RODATA,$%v", Seperator, name, len(data)))
+	return Data(name)
+}
+
+func (a *Asm) Data16(name string, data []uint16) Data {
+	name = fmt.Sprintf("%v<>", name)
+
+	a.write("")
+
+	for i := 0; i < len(data); i++ {
+		if data[i] == 0 {
+			continue
+		}
+
+		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/4, $0x%04x", Seperator, name, 2*i, data[i]))
+	}
+
+	a.write(fmt.Sprintf("GLOBL%v%v(SB),RODATA,$%v", Seperator, name, 2*len(data)))
+	return Data(name)
+}
+
+func (a *Asm) Data32(name string, data []uint32) Data {
+	name = fmt.Sprintf("%v<>", name)
+
+	a.write("")
+
+	for i := 0; i < len(data); i++ {
+		if data[i] == 0 {
+			continue
+		}
+
+		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/4, $0x%08x", Seperator, name, 4*i, data[i]))
+	}
+
+	a.write(fmt.Sprintf("GLOBL%v%v(SB),RODATA,$%v", Seperator, name, 4*len(data)))
+	return Data(name)
+}
+
+func (a *Asm) Data64(name string, data []uint64) Data {
+	name = fmt.Sprintf("%v<>", name)
+
+	a.write("")
+
+	for i := 0; i < len(data); i++ {
+		if data[i] == 0 {
+			continue
+		}
+
+		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/8, $0x%016x", Seperator, name, 8*i, data[i]))
+	}
+
+	a.write(fmt.Sprintf("GLOBL%v%v(SB),RODATA,$%v", Seperator, name, 8*len(data)))
+	return Data(name)
+}
+
+func (a *Asm) DataString(name string, data string) Data {
+	name = fmt.Sprintf("%v<>", name)
+
+	a.write("")
+
+	i := 0
+	for ; i < len(data); i += 8 {
+		if isZeroSlice([]byte(data[i : i+8])) {
+			continue
+		}
+
+		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/8, $%q", Seperator, name, i, data[i:i+8]))
+	}
+
+	for ; i < len(data); i++ {
+		if data[i] == 0 {
+			continue
+		}
+
+		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/1, $%q", Seperator, name, i, data[i]))
+	}
+
+	a.write(fmt.Sprintf("GLOBL%v%v(SB),RODATA,$%v", Seperator, name, len(data)))
+	return Data(name)
+}
+
+type invalid struct{}
+
+func (invalid) String() string {
+	panic("invalid operand")
+}
+
+func (invalid) Gas() string {
+	panic("invalid operand")
+}
+
+var Invalid Operand = invalid{}
 
 type Argument struct {
 	name   string
@@ -59,19 +204,25 @@ func (s *Argument) String() string {
 	return fmt.Sprintf("%v+%v(FP)", s.name, s.offset)
 }
 
-func (a *Asm) Argument(name string) Operand {
-	a.args += 8
+func (*Argument) Gas() string {
+	panic("referencing arguments in unsupported opcodes is forbidden")
+}
+
+func (a *Asm) Argument(name string, size int) Operand {
+	a.args += size
 	return &Argument{
 		name:   name,
-		offset: a.args - 8,
+		offset: a.args - size,
 	}
 }
 
 func (a *Asm) SliceArgument(name string) []Operand {
-	rpy := []Operand{}
+	var rpy []Operand
+
 	for i := 0; i < 3; i++ {
-		rpy = append(rpy, a.Argument(name))
+		rpy = append(rpy, a.Argument(name, 8))
 	}
+
 	return rpy
 }
 
@@ -84,8 +235,12 @@ func (s *StackOperand) String() string {
 	return fmt.Sprintf("%v+-%v(SP)", s.name, s.offset)
 }
 
-func (a *Asm) PushStack(name string) Operand {
-	a.stack += 8
+func (*StackOperand) Gas() string {
+	panic("referencing stack variables in unsupported opcodes is forbidden")
+}
+
+func (a *Asm) PushStack(name string, size int) Operand {
+	a.stack += size
 	return &StackOperand{
 		name:   name,
 		offset: a.stack,
@@ -93,7 +248,11 @@ func (a *Asm) PushStack(name string) Operand {
 }
 
 func (a *Asm) Start() {
-	a.write(fmt.Sprintf("\nTEXT ·%v(SB),4,$%v-%v", a.name, a.stack, a.args))
+	if a.split {
+		a.write(fmt.Sprintf("\nTEXT ·%v(SB),0,$%v-%v", a.name, a.stack, a.args))
+	} else {
+		a.write(fmt.Sprintf("\nTEXT ·%v(SB),NOSPLIT,$%v", a.name, a.stack))
+	}
 }
 
 func (a *Asm) Flush() error {
@@ -106,6 +265,7 @@ func (a *Asm) save(err error) {
 	if err == nil {
 		return
 	}
+
 	a.errors = append(a.errors, err.Error())
 }
 
@@ -113,6 +273,7 @@ func (a *Asm) getErrors() error {
 	if len(a.errors) == 0 {
 		return nil
 	}
+
 	return fmt.Errorf("%s", strings.Join(a.errors, "\n"))
 }
 
@@ -123,19 +284,35 @@ func (a *Asm) write(msg string) {
 
 type Operand interface {
 	String() string
+	Gas() string
 }
 
-type literal string
+type constant string
 
-func (lit literal) String() string {
-	return string(lit)
+func (cons constant) String() string {
+	return string(cons)
+}
+
+func (cons constant) Gas() string {
+	return string(cons)
 }
 
 func Constant(value interface{}) Operand {
-	return literal(fmt.Sprintf("$%v", value))
+	return constant(fmt.Sprintf("$%v", value))
 }
 
-type Register struct{ literal }
+type Register struct {
+	literal string
+	gas     string
+}
+
+func (r Register) String() string {
+	return r.literal
+}
+
+func (r Register) Gas() string {
+	return r.gas
+}
 
 type Scale uint
 
@@ -147,34 +324,63 @@ const (
 	SX8
 )
 
+type addressOperand struct {
+	lit string
+	gas string
+}
+
+func (a addressOperand) String() string {
+	return a.lit
+}
+
+func (a addressOperand) Gas() string {
+	return a.gas
+}
+
 func address(base Register) Operand {
-	return literal(fmt.Sprintf("(%v)", base.String()))
+	return addressOperand{
+		fmt.Sprintf("(%v)", base.String()),
+		fmt.Sprintf("(%v)", base.Gas()),
+	}
 }
 
 func displaceaddress(base Register, index int) Operand {
 	if index == 0 {
 		return address(base)
 	}
-	return literal(fmt.Sprintf("%v(%v)", index, base.String()))
+
+	return addressOperand{
+		fmt.Sprintf("%v(%v)", index, base.String()),
+		fmt.Sprintf("%v(%v)", index, base.Gas()),
+	}
 }
 
 func scaledindex(index Register, scale Scale) string {
 	if scale == SX0 {
 		return ""
 	}
+
 	return fmt.Sprintf("(%v*%v)", index.String(), scale)
 }
 
 func indexaddress(base Register, index Register, scale Scale) Operand {
-	return literal(fmt.Sprintf("(%v)%v", base.String(), scaledindex(index, scale)))
+	return addressOperand{
+		fmt.Sprintf("(%v)%v", base.String(), scaledindex(index, scale)),
+		fmt.Sprintf("(%v, %v, %v)", base.Gas(), index.Gas(), scale),
+	}
 }
 
 func fulladdress(base Register, index Register, scale Scale, displacement int) Operand {
 	d := ""
+
 	if displacement != 0 {
 		d = fmt.Sprintf("%v", displacement)
 	}
-	return literal(fmt.Sprintf("%v(%v)%v", d, base.String(), scaledindex(index, scale)))
+
+	return addressOperand{
+		fmt.Sprintf("%v(%v)%v", d, base.String(), scaledindex(index, scale)),
+		fmt.Sprintf("%v(%v, %v, %v)", d, base.Gas(), index.Gas(), scale),
+	}
 }
 
 func Address(base Register, offsets ...interface{}) Operand {
@@ -191,13 +397,17 @@ func Address(base Register, offsets ...interface{}) Operand {
 		case Register:
 			return indexaddress(base, t, SX1)
 		case Scale:
-			return literal(scaledindex(base, t))
+			return addressOperand{
+				scaledindex(base, t),
+				fmt.Sprintf("(, %v, %v)", base.String(), t),
+			}
 		}
 	case 2:
 		index, ok := offsets[0].(Register)
 		if !ok {
 			break
 		}
+
 		switch t := offsets[1].(type) {
 		case int:
 			return fulladdress(base, index, SX1, t)
@@ -211,10 +421,12 @@ func Address(base Register, offsets ...interface{}) Operand {
 		if !ok {
 			break
 		}
+
 		scale, ok := offsets[1].(Scale)
 		if !ok {
 			break
 		}
+
 		switch t := offsets[2].(type) {
 		case int:
 			return fulladdress(base, index, scale, t)
@@ -222,123 +434,258 @@ func Address(base Register, offsets ...interface{}) Operand {
 			return fulladdress(base, index, scale, int(t))
 		}
 	}
+
 	panic("unexpected input")
 }
 
-type SimdRegister struct{ literal }
+type SimdRegister struct {
+	literal string
+	gas     string
+}
+
+func (r SimdRegister) String() string {
+	return r.literal
+}
+
+func (r SimdRegister) Gas() string {
+	return r.gas
+}
 
 var (
-	SP  = Register{literal: "SP"}
-	AX  = Register{literal: "AX"}
-	AH  = Register{literal: "AH"}
-	AL  = Register{literal: "AL"}
-	BX  = Register{literal: "BX"}
-	BH  = Register{literal: "BH"}
-	BL  = Register{literal: "BL"}
-	CX  = Register{literal: "CX"}
-	CH  = Register{literal: "CH"}
-	CL  = Register{literal: "CL"}
-	DX  = Register{literal: "DX"}
-	DH  = Register{literal: "DH"}
-	DL  = Register{literal: "DL"}
-	BP  = Register{literal: "BP"}
-	DI  = Register{literal: "DI"}
-	SI  = Register{literal: "SI"}
-	R8  = Register{literal: "R8"}
-	R9  = Register{literal: "R9"}
-	R10 = Register{literal: "R10"}
-	R11 = Register{literal: "R11"}
-	R12 = Register{literal: "R12"}
-	R13 = Register{literal: "R13"}
-	R14 = Register{literal: "R14"}
-	R15 = Register{literal: "R15"}
-	X0  = SimdRegister{literal: "X0"}
-	X1  = SimdRegister{literal: "X1"}
-	X2  = SimdRegister{literal: "X2"}
-	X3  = SimdRegister{literal: "X3"}
-	X4  = SimdRegister{literal: "X4"}
-	X5  = SimdRegister{literal: "X5"}
-	X6  = SimdRegister{literal: "X6"}
-	X7  = SimdRegister{literal: "X7"}
-	X8  = SimdRegister{literal: "X8"}
-	X9  = SimdRegister{literal: "X9"}
-	X10 = SimdRegister{literal: "X10"}
-	X11 = SimdRegister{literal: "X11"}
-	X12 = SimdRegister{literal: "X12"}
-	X13 = SimdRegister{literal: "X13"}
-	X14 = SimdRegister{literal: "X14"}
-	X15 = SimdRegister{literal: "X15"}
+	SP  = Register{literal: "SP", gas: "%rsp"}
+	AX  = Register{literal: "AX", gas: "%rax"}
+	AH  = Register{literal: "AH", gas: "%ah"}
+	AL  = Register{literal: "AL", gas: "%al"}
+	BX  = Register{literal: "BX", gas: "%rbx"}
+	BH  = Register{literal: "BH", gas: "%bh"}
+	BL  = Register{literal: "BL", gas: "%bl"}
+	CX  = Register{literal: "CX", gas: "%rcx"}
+	CH  = Register{literal: "CH", gas: "%ch"}
+	CL  = Register{literal: "CL", gas: "%cl"}
+	DX  = Register{literal: "DX", gas: "%rdx"}
+	DH  = Register{literal: "DH", gas: "%dh"}
+	DL  = Register{literal: "DL", gas: "%dl"}
+	BP  = Register{literal: "BP", gas: "%rbp"}
+	DI  = Register{literal: "DI", gas: "%rdi"}
+	SI  = Register{literal: "SI", gas: "%rsi"}
+	R8  = Register{literal: "R8", gas: "%r8"}
+	R9  = Register{literal: "R9", gas: "%r9"}
+	R10 = Register{literal: "R10", gas: "%r10"}
+	R11 = Register{literal: "R11", gas: "%r11"}
+	R12 = Register{literal: "R12", gas: "%r12"}
+	R13 = Register{literal: "R13", gas: "%r13"}
+	R14 = Register{literal: "R14", gas: "%r14"}
+	R15 = Register{literal: "R15", gas: "%r15"}
+
+	X0  = SimdRegister{literal: "X0", gas: "%xmm0"}
+	X1  = SimdRegister{literal: "X1", gas: "%xmm1"}
+	X2  = SimdRegister{literal: "X2", gas: "%xmm2"}
+	X3  = SimdRegister{literal: "X3", gas: "%xmm3"}
+	X4  = SimdRegister{literal: "X4", gas: "%xmm4"}
+	X5  = SimdRegister{literal: "X5", gas: "%xmm5"}
+	X6  = SimdRegister{literal: "X6", gas: "%xmm6"}
+	X7  = SimdRegister{literal: "X7", gas: "%xmm7"}
+	X8  = SimdRegister{literal: "X8", gas: "%xmm8"}
+	X9  = SimdRegister{literal: "X9", gas: "%xmm9"}
+	X10 = SimdRegister{literal: "X10", gas: "%xmm10"}
+	X11 = SimdRegister{literal: "X11", gas: "%xmm11"}
+	X12 = SimdRegister{literal: "X12", gas: "%xmm12"}
+	X13 = SimdRegister{literal: "X13", gas: "%xmm13"}
+	X14 = SimdRegister{literal: "X14", gas: "%xmm14"}
+	X15 = SimdRegister{literal: "X15", gas: "%xmm15"}
+
+	Y0  = SimdRegister{literal: "Y0", gas: "%ymm0"}
+	Y1  = SimdRegister{literal: "Y1", gas: "%ymm1"}
+	Y2  = SimdRegister{literal: "Y2", gas: "%ymm2"}
+	Y3  = SimdRegister{literal: "Y3", gas: "%ymm3"}
+	Y4  = SimdRegister{literal: "Y4", gas: "%ymm4"}
+	Y5  = SimdRegister{literal: "Y5", gas: "%ymm5"}
+	Y6  = SimdRegister{literal: "Y6", gas: "%ymm6"}
+	Y7  = SimdRegister{literal: "Y7", gas: "%ymm7"}
+	Y8  = SimdRegister{literal: "Y8", gas: "%ymm8"}
+	Y9  = SimdRegister{literal: "Y9", gas: "%ymm9"}
+	Y10 = SimdRegister{literal: "Y10", gas: "%ymm10"}
+	Y11 = SimdRegister{literal: "Y11", gas: "%ymm11"}
+	Y12 = SimdRegister{literal: "Y12", gas: "%ymm12"}
+	Y13 = SimdRegister{literal: "Y13", gas: "%ymm13"}
+	Y14 = SimdRegister{literal: "Y14", gas: "%ymm14"}
+	Y15 = SimdRegister{literal: "Y15", gas: "%ymm15"}
 )
 
-type label string
+type Label struct{ name string }
 
-func (a *Asm) NewLabel(name string) label {
-	idx := a.label
-	a.label++
-	return label(fmt.Sprintf("%v_%v", name, idx))
+func (a *Asm) NewLabel(name string) Label {
+	return Label{name}
 }
 
-func (l label) String() string {
-	return string(l)
+func (l Label) String() string {
+	return l.name
 }
 
-func (a *Asm) op0(instruction string) {
-	a.write("\t\t" + instruction)
+func (Label) Gas() string {
+	panic("referencing labels in unsupported opcodes is forbidden")
 }
 
-func (a *Asm) op1(instruction string, opa Operand) {
-	a.write("\t\t" + instruction + "\t" + opa.String())
+func (l Label) Suffix(suffix string) Label {
+	return Label{fmt.Sprintf("%s_%s", l.name, suffix)}
 }
 
-func (a *Asm) op2(instruction string, opa, opb Operand) {
-	a.write("\t\t" + instruction + "\t" + opb.String() + ", " + opa.String())
+func (a *Asm) op(instruction string, ops ...Operand) {
+	if len(ops) == 0 {
+		a.write("\t" + instruction)
+		return
+	}
+
+	var sOps []string
+
+	for i := len(ops) - 1; i >= 0; i-- {
+		sOps = append(sOps, ops[i].String())
+	}
+
+	a.write(fmt.Sprintf("\t%v%v%v", instruction, Seperator, strings.Join(sOps, ", ")))
 }
 
-func (a *Asm) op3(instruction string, opa, opb, opc Operand) {
-	a.write(fmt.Sprintf("\t\t%v\t%v, %v, %v", instruction, opc.String(), opb.String(), opa.String()))
+var objdumpRegex = regexp.MustCompile(`^\s+\d:\s+((?:[0-9a-fA-F]{2} )+)`)
+
+func (a *Asm) unsupOp(instruction string, ops ...Operand) {
+	tmp, err := ioutil.TempFile("", "")
+	if err != nil {
+		panic(err)
+	}
+
+	defer os.Remove(tmp.Name())
+	tmp.Close()
+
+	var gOps []string
+
+	for i := len(ops) - 1; i >= 0; i-- {
+		gOps = append(gOps, ops[i].Gas())
+	}
+
+	cmd := exec.Command("as", "-o", tmp.Name(), "-")
+	cmd.Stdin = strings.NewReader(fmt.Sprintf("%v\t%s\n", instruction, strings.Join(gOps, ", ")))
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		panic(err)
+	}
+
+	cmd = exec.Command("objdump", "-d", tmp.Name())
+	cmd.Stderr = os.Stderr
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		panic(err)
+	}
+
+	if err = cmd.Start(); err != nil {
+		panic(err)
+	}
+
+	gOps = gOps[:0]
+
+	for i := len(ops) - 1; i >= 0; i-- {
+		gOps = append(gOps, ops[i].String())
+	}
+
+	a.write(fmt.Sprintf("\t// %v%v%s", instruction, Seperator, strings.Join(gOps, ", ")))
+
+	scan2 := bufio.NewScanner(stdout)
+
+	for scan2.Scan() {
+		m := objdumpRegex.FindStringSubmatch(scan2.Text())
+		if m == nil {
+			continue
+		}
+
+		a.write(fmt.Sprintf("\tBYTE $0x%s", strings.Join(strings.Split(strings.TrimSpace(m[1]), " "), "; BYTE $0x")))
+	}
+
+	if err = cmd.Wait(); err != nil {
+		panic(err)
+	}
 }
 
-func (a *Asm) Label(name label) {
+func (a *Asm) Label(name Label) {
 	a.write(name.String() + ":")
 }
 
-func (a *Asm) Ret() { a.op0("RET") }
+func Do(file, header string, run func(*Asm)) error {
+	f, err := os.Create(file)
+	if err != nil {
+		return err
+	}
 
-func (a *Asm) Imulq(op Operand) { a.op1("IMULQ", op) }
-func (a *Asm) Incq(op Operand)  { a.op1("INCQ", op) }
-func (a *Asm) Je(name label)    { a.op1("JE", name) }
-func (a *Asm) Jmp(name label)   { a.op1("JMP", name) }
-func (a *Asm) Jne(name label)   { a.op1("JNE", name) }
-func (a *Asm) Mulq(op Operand)  { a.op1("MULQ", op) }
-func (a *Asm) Neg(op Operand)   { a.op1("NEGQ", op) }
+	defer f.Close()
 
-func (a *Asm) Addq(opa, opb Operand)       { a.op2("ADDQ", opa, opb) }
-func (a *Asm) Andq(opa, opb Operand)       { a.op2("ANDQ", opa, opb) }
-func (a *Asm) Cmovql(opa, opb Operand)     { a.op2("CMOVQLT", opa, opb) }
-func (a *Asm) Cmpq(opa, opb Operand)       { a.op2("CMPQ", opa, opb) }
-func (a *Asm) Leaq(opa, opb Operand)       { a.op2("LEAQ", opa, opb) }
-func (a *Asm) Movb(opa, opb Operand)       { a.op2("MOVB", opa, opb) }
-func (a *Asm) Movbqzx(opa, opb Operand)    { a.op2("MOVBQZX", opa, opb) }
-func (a *Asm) Movd(opa, opb Operand)       { a.op2("MOVL", opa, opb) }
-func (a *Asm) Movo(opa, opb Operand)       { a.op2("MOVO", opa, opb) }
-func (a *Asm) Movou(opa, opb Operand)      { a.op2("MOVOU", opa, opb) }
-func (a *Asm) Movq(opa, opb Operand)       { a.op2("MOVQ", opa, opb) }
-func (a *Asm) Movwqsx(opa, opb Operand)    { a.op2("MOVWQSX", opa, opb) }
-func (a *Asm) Orq(opa, opb Operand)        { a.op2("ORQ", opa, opb) }
-func (a *Asm) Packssdw(opa, opb Operand)   { a.op2("PACKSSLW", opa, opb) }
-func (a *Asm) Packuswb(opa, opb Operand)   { a.op2("PACKUSWB", opa, opb) }
-func (a *Asm) Paddd(opa, opb Operand)      { a.op2("PADDL", opa, opb) }
-func (a *Asm) Pmaddwd(opa, opb Operand)    { a.op2("PMADDWL", opa, opb) }
-func (a *Asm) Psrad(opa, opb Operand)      { a.op2("PSRAL", opa, opb) }
-func (a *Asm) Punpckhbw(opa, opb Operand)  { a.op2("PUNPCKHBW", opa, opb) }
-func (a *Asm) Punpckhqdq(opa, opb Operand) { a.op2("PUNPCKHQDQ", opa, opb) }
-func (a *Asm) Punpcklbw(opa, opb Operand)  { a.op2("PUNPCKLBW", opa, opb) }
-func (a *Asm) Punpckldq(opa, opb Operand)  { a.op2("PUNPCKLLQ", opa, opb) }
-func (a *Asm) Punpcklqdq(opa, opb Operand) { a.op2("PUNPCKLQDQ", opa, opb) }
-func (a *Asm) Pxor(opa, opb Operand)       { a.op2("PXOR", opa, opb) }
-func (a *Asm) Shlq(opa, opb Operand)       { a.op2("SHLQ", opa, opb) }
-func (a *Asm) Shrq(opa, opb Operand)       { a.op2("SHRQ", opa, opb) }
-func (a *Asm) Subq(opa, opb Operand)       { a.op2("SUBQ", opa, opb) }
+	if _, err := io.WriteString(f, header); err != nil {
+		return err
+	}
 
-func (a *Asm) Pinsrw(opa, opb, opc Operand) { a.op3("PINSRW", opa, opb, opc) }
-func (a *Asm) Shufps(opa, opb, opc Operand) { a.op3("SHUFPS", opa, opb, opc) }
+	a := NewAsm(f)
+	run(a)
+	return a.Flush()
+}
+
+//go:generate go run ./opcode_gen.go -i $GOROOT/src/cmd/internal/obj/x86/a.out.go -o opcode.go -p asm
+//go:generate gofmt -w opcode.go
+
+// general opcodes
+
+func (a *Asm) Nop(ops ...Operand)  { a.op("NOP", ops...) }
+func (a *Asm) NOP(ops ...Operand)  { a.op("NOP", ops...) }
+func (a *Asm) Ret(ops ...Operand)  { a.op("RET", ops...) }
+func (a *Asm) RET(ops ...Operand)  { a.op("RET", ops...) }
+func (a *Asm) Call(ops ...Operand) { a.op("CALL", ops...) }
+func (a *Asm) CALL(ops ...Operand) { a.op("CALL", ops...) }
+func (a *Asm) Jmp(ops ...Operand)  { a.op("JMP", ops...) }
+func (a *Asm) JMP(ops ...Operand)  { a.op("JMP", ops...) }
+
+// other jumps
+
+func (a *Asm) Je(ops ...Operand)  { a.op("JE", ops...) }
+func (a *Asm) JE(ops ...Operand)  { a.op("JE", ops...) }
+func (a *Asm) Jb(ops ...Operand)  { a.op("JB", ops...) }
+func (a *Asm) JB(ops ...Operand)  { a.op("JB", ops...) }
+func (a *Asm) Jae(ops ...Operand) { a.op("JAE", ops...) }
+func (a *Asm) JAE(ops ...Operand) { a.op("JAE", ops...) }
+func (a *Asm) Jz(ops ...Operand)  { a.op("JZ", ops...) }
+func (a *Asm) JZ(ops ...Operand)  { a.op("JZ", ops...) }
+func (a *Asm) Jnz(ops ...Operand) { a.op("JNZ", ops...) }
+func (a *Asm) JNZ(ops ...Operand) { a.op("JNZ", ops...) }
+
+// faulty/incomplete opcodes
+
+func (a *Asm) Pextrw(ops ...Operand) { a.unsupOp("PEXTRW", ops...) }
+func (a *Asm) PEXTRW(ops ...Operand) { a.unsupOp("PEXTRW", ops...) }
+
+// unsupported opcodes
+
+func (a *Asm) Ptest(ops ...Operand)       { a.unsupOp("PTEST", ops...) }
+func (a *Asm) PTEST(ops ...Operand)       { a.unsupOp("PTEST", ops...) }
+func (a *Asm) Vpunpckhbw(ops ...Operand)  { a.unsupOp("VPUNPCKHBW", ops...) }
+func (a *Asm) VPUNPCKHBW(ops ...Operand)  { a.unsupOp("VPUNPCKHBW", ops...) }
+func (a *Asm) Vpshufb(ops ...Operand)     { a.unsupOp("VPSHUFB", ops...) }
+func (a *Asm) VPSHUFB(ops ...Operand)     { a.unsupOp("VPSHUFB", ops...) }
+func (a *Asm) Vpor(ops ...Operand)        { a.unsupOp("VPOR", ops...) }
+func (a *Asm) VPOR(ops ...Operand)        { a.unsupOp("VPOR", ops...) }
+func (a *Asm) Vpcmpgtb(ops ...Operand)    { a.unsupOp("VPCMPGTB", ops...) }
+func (a *Asm) VPCMPGTB(ops ...Operand)    { a.unsupOp("VPCMPGTB", ops...) }
+func (a *Asm) Pblendvb(ops ...Operand)    { a.unsupOp("PBLENDVB", ops...) }
+func (a *Asm) PBLENDVB(ops ...Operand)    { a.unsupOp("PBLENDVB", ops...) }
+func (a *Asm) Vinsertf128(ops ...Operand) { a.unsupOp("VINSERTF128", ops...) }
+func (a *Asm) VINSERTF128(ops ...Operand) { a.unsupOp("VINSERTF128", ops...) }
+func (a *Asm) Vpblendvb(ops ...Operand)   { a.unsupOp("VPBLENDVB", ops...) }
+func (a *Asm) VPBLENDVB(ops ...Operand)   { a.unsupOp("VPBLENDVB", ops...) }
+func (a *Asm) Vpsrldq(ops ...Operand)     { a.unsupOp("VPSRLDQ", ops...) }
+func (a *Asm) VPSRLDQ(ops ...Operand)     { a.unsupOp("VPSRLDQ", ops...) }
+func (a *Asm) Vpsrad(ops ...Operand)      { a.unsupOp("VPSRAD", ops...) }
+func (a *Asm) VPSRAD(ops ...Operand)      { a.unsupOp("VPSRAD", ops...) }
+func (a *Asm) Vpsrld(ops ...Operand)      { a.unsupOp("VPSRLD", ops...) }
+func (a *Asm) VPSRLD(ops ...Operand)      { a.unsupOp("VPSRLD", ops...) }
+func (a *Asm) Vpslld(ops ...Operand)      { a.unsupOp("VPSLLD", ops...) }
+func (a *Asm) VPSLLD(ops ...Operand)      { a.unsupOp("VPSLLD", ops...) }
+func (a *Asm) Pmaddubsw(ops ...Operand)   { a.unsupOp("PMADDUBSW", ops...) }
+func (a *Asm) PMADDUBSW(ops ...Operand)   { a.unsupOp("PMADDUBSW", ops...) }
+func (a *Asm) Vpsubb(ops ...Operand)      { a.unsupOp("VPSUBB", ops...) }
+func (a *Asm) VPSUBB(ops ...Operand)      { a.unsupOp("VPSUBB", ops...) }
