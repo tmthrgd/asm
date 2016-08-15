@@ -653,6 +653,8 @@ func (a *Asm) Jz(ops ...Operand)  { a.op("JZ", ops...) }
 func (a *Asm) JZ(ops ...Operand)  { a.op("JZ", ops...) }
 func (a *Asm) Jnz(ops ...Operand) { a.op("JNZ", ops...) }
 func (a *Asm) JNZ(ops ...Operand) { a.op("JNZ", ops...) }
+func (a *Asm) Jc(ops ...Operand)  { a.op("JC", ops...) }
+func (a *Asm) JC(ops ...Operand)  { a.op("JC", ops...) }
 
 // faulty/incomplete opcodes
 
@@ -661,31 +663,41 @@ func (a *Asm) PEXTRW(ops ...Operand) { a.unsupOp("PEXTRW", ops...) }
 
 // unsupported opcodes
 
-func (a *Asm) Ptest(ops ...Operand)       { a.unsupOp("PTEST", ops...) }
-func (a *Asm) PTEST(ops ...Operand)       { a.unsupOp("PTEST", ops...) }
-func (a *Asm) Vpunpckhbw(ops ...Operand)  { a.unsupOp("VPUNPCKHBW", ops...) }
-func (a *Asm) VPUNPCKHBW(ops ...Operand)  { a.unsupOp("VPUNPCKHBW", ops...) }
-func (a *Asm) Vpshufb(ops ...Operand)     { a.unsupOp("VPSHUFB", ops...) }
-func (a *Asm) VPSHUFB(ops ...Operand)     { a.unsupOp("VPSHUFB", ops...) }
-func (a *Asm) Vpor(ops ...Operand)        { a.unsupOp("VPOR", ops...) }
-func (a *Asm) VPOR(ops ...Operand)        { a.unsupOp("VPOR", ops...) }
-func (a *Asm) Vpcmpgtb(ops ...Operand)    { a.unsupOp("VPCMPGTB", ops...) }
-func (a *Asm) VPCMPGTB(ops ...Operand)    { a.unsupOp("VPCMPGTB", ops...) }
-func (a *Asm) Pblendvb(ops ...Operand)    { a.unsupOp("PBLENDVB", ops...) }
-func (a *Asm) PBLENDVB(ops ...Operand)    { a.unsupOp("PBLENDVB", ops...) }
-func (a *Asm) Vinsertf128(ops ...Operand) { a.unsupOp("VINSERTF128", ops...) }
-func (a *Asm) VINSERTF128(ops ...Operand) { a.unsupOp("VINSERTF128", ops...) }
-func (a *Asm) Vpblendvb(ops ...Operand)   { a.unsupOp("VPBLENDVB", ops...) }
-func (a *Asm) VPBLENDVB(ops ...Operand)   { a.unsupOp("VPBLENDVB", ops...) }
-func (a *Asm) Vpsrldq(ops ...Operand)     { a.unsupOp("VPSRLDQ", ops...) }
-func (a *Asm) VPSRLDQ(ops ...Operand)     { a.unsupOp("VPSRLDQ", ops...) }
-func (a *Asm) Vpsrad(ops ...Operand)      { a.unsupOp("VPSRAD", ops...) }
-func (a *Asm) VPSRAD(ops ...Operand)      { a.unsupOp("VPSRAD", ops...) }
-func (a *Asm) Vpsrld(ops ...Operand)      { a.unsupOp("VPSRLD", ops...) }
-func (a *Asm) VPSRLD(ops ...Operand)      { a.unsupOp("VPSRLD", ops...) }
-func (a *Asm) Vpslld(ops ...Operand)      { a.unsupOp("VPSLLD", ops...) }
-func (a *Asm) VPSLLD(ops ...Operand)      { a.unsupOp("VPSLLD", ops...) }
-func (a *Asm) Pmaddubsw(ops ...Operand)   { a.unsupOp("PMADDUBSW", ops...) }
-func (a *Asm) PMADDUBSW(ops ...Operand)   { a.unsupOp("PMADDUBSW", ops...) }
-func (a *Asm) Vpsubb(ops ...Operand)      { a.unsupOp("VPSUBB", ops...) }
-func (a *Asm) VPSUBB(ops ...Operand)      { a.unsupOp("VPSUBB", ops...) }
+func (a *Asm) Ptest(ops ...Operand)        { a.unsupOp("PTEST", ops...) }
+func (a *Asm) PTEST(ops ...Operand)        { a.unsupOp("PTEST", ops...) }
+func (a *Asm) Vpunpckhbw(ops ...Operand)   { a.unsupOp("VPUNPCKHBW", ops...) }
+func (a *Asm) VPUNPCKHBW(ops ...Operand)   { a.unsupOp("VPUNPCKHBW", ops...) }
+func (a *Asm) Vpunpcklqdq(ops ...Operand)  { a.unsupOp("VPUNPCKLQDQ", ops...) }
+func (a *Asm) VPUNPCKLQDQ(ops ...Operand)  { a.unsupOp("VPUNPCKLQDQ", ops...) }
+func (a *Asm) Vpunpckhqdq(ops ...Operand)  { a.unsupOp("VPUNPCKHQDQ", ops...) }
+func (a *Asm) VPUNPCKHQDQ(ops ...Operand)  { a.unsupOp("VPUNPCKHQDQ", ops...) }
+func (a *Asm) Vpshufb(ops ...Operand)      { a.unsupOp("VPSHUFB", ops...) }
+func (a *Asm) VPSHUFB(ops ...Operand)      { a.unsupOp("VPSHUFB", ops...) }
+func (a *Asm) Vpor(ops ...Operand)         { a.unsupOp("VPOR", ops...) }
+func (a *Asm) VPOR(ops ...Operand)         { a.unsupOp("VPOR", ops...) }
+func (a *Asm) Vpcmpgtb(ops ...Operand)     { a.unsupOp("VPCMPGTB", ops...) }
+func (a *Asm) VPCMPGTB(ops ...Operand)     { a.unsupOp("VPCMPGTB", ops...) }
+func (a *Asm) Vpcmpeqq(ops ...Operand)     { a.unsupOp("VPCMPEQQ", ops...) }
+func (a *Asm) VPCMPEQQ(ops ...Operand)     { a.unsupOp("VPCMPEQQ", ops...) }
+func (a *Asm) Pblendvb(ops ...Operand)     { a.unsupOp("PBLENDVB", ops...) }
+func (a *Asm) PBLENDVB(ops ...Operand)     { a.unsupOp("PBLENDVB", ops...) }
+func (a *Asm) Vinsertf128(ops ...Operand)  { a.unsupOp("VINSERTF128", ops...) }
+func (a *Asm) VINSERTF128(ops ...Operand)  { a.unsupOp("VINSERTF128", ops...) }
+func (a *Asm) Vpblendvb(ops ...Operand)    { a.unsupOp("VPBLENDVB", ops...) }
+func (a *Asm) VPBLENDVB(ops ...Operand)    { a.unsupOp("VPBLENDVB", ops...) }
+func (a *Asm) Vpsrldq(ops ...Operand)      { a.unsupOp("VPSRLDQ", ops...) }
+func (a *Asm) VPSRLDQ(ops ...Operand)      { a.unsupOp("VPSRLDQ", ops...) }
+func (a *Asm) Vpsrad(ops ...Operand)       { a.unsupOp("VPSRAD", ops...) }
+func (a *Asm) VPSRAD(ops ...Operand)       { a.unsupOp("VPSRAD", ops...) }
+func (a *Asm) Vpsrld(ops ...Operand)       { a.unsupOp("VPSRLD", ops...) }
+func (a *Asm) VPSRLD(ops ...Operand)       { a.unsupOp("VPSRLD", ops...) }
+func (a *Asm) Vpslld(ops ...Operand)       { a.unsupOp("VPSLLD", ops...) }
+func (a *Asm) VPSLLD(ops ...Operand)       { a.unsupOp("VPSLLD", ops...) }
+func (a *Asm) Pmaddubsw(ops ...Operand)    { a.unsupOp("PMADDUBSW", ops...) }
+func (a *Asm) PMADDUBSW(ops ...Operand)    { a.unsupOp("PMADDUBSW", ops...) }
+func (a *Asm) Vpsubb(ops ...Operand)       { a.unsupOp("VPSUBB", ops...) }
+func (a *Asm) VPSUBB(ops ...Operand)       { a.unsupOp("VPSUBB", ops...) }
+func (a *Asm) Vbroadcastss(ops ...Operand) { a.unsupOp("VBROADCASTSS", ops...) }
+func (a *Asm) VBROADCASTSS(ops ...Operand) { a.unsupOp("VBROADCASTSS", ops...) }
+func (a *Asm) Pcmpeqq(ops ...Operand)      { a.unsupOp("PCMPEQQ", ops...) }
+func (a *Asm) PCMPEQQ(ops ...Operand)      { a.unsupOp("PCMPEQQ", ops...) }
