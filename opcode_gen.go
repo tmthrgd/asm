@@ -99,8 +99,8 @@ func main() {
 		case "PEXTRW":
 			// Golangs PEXTRW is faulty/incomplete
 		default:
-			fmt.Fprintf(out, "func (a *Asm) %s%s(ops ...Operand) { a.op(%q, ops...) }\n", sub[1][:1], strings.ToLower(sub[1][1:]), sub[1])
-			fmt.Fprintf(out, "func (a *Asm) %[1]s(ops ...Operand) { a.op(%[1]q, ops...) }\n", sub[1])
+			fmt.Fprintf(out, "func (o Opcodes) %s%s(ops ...Operand) { o.a.op(%q, ops...) }\n", sub[1][:1], strings.ToLower(sub[1][1:]), sub[1])
+			fmt.Fprintf(out, "func (o Opcodes) %[1]s(ops ...Operand) { o.a.op(%[1]q, ops...) }\n", sub[1])
 		}
 	}
 
