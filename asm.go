@@ -123,7 +123,7 @@ func (a *Asm) Data16(name string, data []uint16) Data {
 			continue
 		}
 
-		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/4, $0x%04x", Seperator, name, 2*i, data[i]))
+		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/2, $0x%04x", Seperator, name, 2*i, data[i]))
 	}
 
 	a.write(fmt.Sprintf("GLOBL%v%v(SB),RODATA,$%v", Seperator, name, 2*len(data)))
