@@ -696,3 +696,5 @@ func (o Opcodes) Vpsubb(ops ...Operand)      { o.a.unsupOp("VPSUBB", ops...) }
 func (o Opcodes) VPSUBB(ops ...Operand)      { o.a.unsupOp("VPSUBB", ops...) }
 func (o Opcodes) Pcmpeqq(ops ...Operand)     { o.a.unsupOp("PCMPEQQ", ops...) }
 func (o Opcodes) PCMPEQQ(ops ...Operand)     { o.a.unsupOp("PCMPEQQ", ops...) }
+func (o Opcodes) Cmpxchg16b(ops ...Operand)  { o.a.unsupOp("CMPXCHG16B", ops...) }
+func (o Opcodes) CMPXCHG16B(ops ...Operand)  { o.a.unsupOp("CMPXCHG16B", ops...) }
