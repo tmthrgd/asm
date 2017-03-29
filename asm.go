@@ -537,6 +537,16 @@ func (l Label) Suffix(suffix string) Label {
 	return Label{fmt.Sprintf("%s_%s", l.name, suffix)}
 }
 
+type Function string
+
+func (f Function) String() string {
+	return fmt.Sprintf("·%s(SB)", string(f))
+}
+
+func (Function) Gas() string {
+	panic("referencing functions in unsupported opcodes is forbidden")
+}
+
 func (a *Asm) op(instruction string, ops ...Operand) {
 	if len(ops) == 0 {
 		a.write("\t" + instruction)
