@@ -565,7 +565,7 @@ func (a *Asm) op(instruction string, ops ...Operand) {
 var objdumpRegex = regexp.MustCompile(`^\s+\d:\s+((?:[0-9a-fA-F]{2} )+)`)
 
 func (a *Asm) unsupOp(instruction string, ops ...Operand) {
-	tmp, err := ioutil.TempFile("", "")
+	tmp, err := ioutil.TempFile("", "asm-unsupOp-")
 	if err != nil {
 		panic(err)
 	}
