@@ -569,9 +569,8 @@ func (a *Asm) unsupOp(instruction string, ops ...Operand) {
 	if err != nil {
 		panic(err)
 	}
-
-	defer os.Remove(tmp.Name())
-	tmp.Close()
+	defer tmp.Close()
+	os.Remove(tmp.Name())
 
 	var gOps []string
 
@@ -579,15 +578,17 @@ func (a *Asm) unsupOp(instruction string, ops ...Operand) {
 		gOps = append(gOps, ops[i].Gas())
 	}
 
-	cmd := exec.Command("as", "-o", tmp.Name(), "-")
+	cmd := exec.Command("as", "-o", "/dev/stdout", "-")
 	cmd.Stdin = strings.NewReader(fmt.Sprintf("%v\t%s\n", instruction, strings.Join(gOps, ", ")))
+	cmd.Stdout = tmp
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
 		panic(err)
 	}
 
-	cmd = exec.Command("objdump", "-d", tmp.Name())
+	cmd = exec.Command("objdump", "-d", "/dev/stdin")
+	cmd.Stdin = tmp
 	cmd.Stderr = os.Stderr
 
 	stdout, err := cmd.StdoutPipe()
