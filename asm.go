@@ -15,14 +15,14 @@ import (
 	"strings"
 )
 
-var Seperator = " " // or \t
-
 type Opcodes struct {
 	a *Asm
 }
 
 type Asm struct {
 	Opcodes
+
+	Seperator string
 
 	w      *bufio.Writer
 	errors []string
@@ -36,6 +36,8 @@ type Asm struct {
 
 func NewAsm(w io.Writer) *Asm {
 	a := &Asm{
+		Seperator: " ",
+
 		w: bufio.NewWriter(w),
 	}
 	a.Opcodes.a = a
@@ -98,7 +100,7 @@ func (a *Asm) Data(name string, data []byte) Data {
 			continue
 		}
 
-		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/8, $0x%016x", Seperator, name, i, data[i:i+8]))
+		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/8, $0x%016x", a.Seperator, name, i, data[i:i+8]))
 	}
 
 	for ; i < len(data); i++ {
@@ -106,10 +108,10 @@ func (a *Asm) Data(name string, data []byte) Data {
 			continue
 		}
 
-		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/1, $0x%02x", Seperator, name, i, data[i]))
+		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/1, $0x%02x", a.Seperator, name, i, data[i]))
 	}
 
-	a.write(fmt.Sprintf("GLOBL%v%v(SB),RODATA,$%v", Seperator, name, len(data)))
+	a.write(fmt.Sprintf("GLOBL%v%v(SB),RODATA,$%v", a.Seperator, name, len(data)))
 	return Data(name)
 }
 
@@ -123,10 +125,10 @@ func (a *Asm) Data16(name string, data []uint16) Data {
 			continue
 		}
 
-		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/2, $0x%04x", Seperator, name, 2*i, data[i]))
+		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/2, $0x%04x", a.Seperator, name, 2*i, data[i]))
 	}
 
-	a.write(fmt.Sprintf("GLOBL%v%v(SB),RODATA,$%v", Seperator, name, 2*len(data)))
+	a.write(fmt.Sprintf("GLOBL%v%v(SB),RODATA,$%v", a.Seperator, name, 2*len(data)))
 	return Data(name)
 }
 
@@ -140,10 +142,10 @@ func (a *Asm) Data32(name string, data []uint32) Data {
 			continue
 		}
 
-		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/4, $0x%08x", Seperator, name, 4*i, data[i]))
+		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/4, $0x%08x", a.Seperator, name, 4*i, data[i]))
 	}
 
-	a.write(fmt.Sprintf("GLOBL%v%v(SB),RODATA,$%v", Seperator, name, 4*len(data)))
+	a.write(fmt.Sprintf("GLOBL%v%v(SB),RODATA,$%v", a.Seperator, name, 4*len(data)))
 	return Data(name)
 }
 
@@ -157,10 +159,10 @@ func (a *Asm) Data64(name string, data []uint64) Data {
 			continue
 		}
 
-		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/8, $0x%016x", Seperator, name, 8*i, data[i]))
+		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/8, $0x%016x", a.Seperator, name, 8*i, data[i]))
 	}
 
-	a.write(fmt.Sprintf("GLOBL%v%v(SB),RODATA,$%v", Seperator, name, 8*len(data)))
+	a.write(fmt.Sprintf("GLOBL%v%v(SB),RODATA,$%v", a.Seperator, name, 8*len(data)))
 	return Data(name)
 }
 
@@ -175,7 +177,7 @@ func (a *Asm) DataString(name string, data string) Data {
 			continue
 		}
 
-		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/8, $%q", Seperator, name, i, data[i:i+8]))
+		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/8, $%q", a.Seperator, name, i, data[i:i+8]))
 	}
 
 	for ; i < len(data); i++ {
@@ -183,10 +185,10 @@ func (a *Asm) DataString(name string, data string) Data {
 			continue
 		}
 
-		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/1, $%q", Seperator, name, i, data[i]))
+		a.write(fmt.Sprintf("DATA%v%v+0x%02x(SB)/1, $%q", a.Seperator, name, i, data[i]))
 	}
 
-	a.write(fmt.Sprintf("GLOBL%v%v(SB),RODATA,$%v", Seperator, name, len(data)))
+	a.write(fmt.Sprintf("GLOBL%v%v(SB),RODATA,$%v", a.Seperator, name, len(data)))
 	return Data(name)
 }
 
@@ -559,7 +561,7 @@ func (a *Asm) op(instruction string, ops ...Operand) {
 		sOps = append(sOps, ops[i].String())
 	}
 
-	a.write(fmt.Sprintf("\t%v%v%v", instruction, Seperator, strings.Join(sOps, ", ")))
+	a.write(fmt.Sprintf("\t%v%v%v", instruction, a.Seperator, strings.Join(sOps, ", ")))
 }
 
 var objdumpRegex = regexp.MustCompile(`^\s+\d:\s+((?:[0-9a-fA-F]{2} )+)`)
@@ -606,7 +608,7 @@ func (a *Asm) unsupOp(instruction string, ops ...Operand) {
 		gOps = append(gOps, ops[i].String())
 	}
 
-	a.write(fmt.Sprintf("\t// %v%v%s", instruction, Seperator, strings.Join(gOps, ", ")))
+	a.write(fmt.Sprintf("\t// %v%v%s", instruction, a.Seperator, strings.Join(gOps, ", ")))
 
 	scan2 := bufio.NewScanner(stdout)
 
