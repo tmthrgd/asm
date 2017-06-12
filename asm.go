@@ -451,20 +451,20 @@ func (r Register) Gas() string {
 	return "%" + prefix + strings.ToLower(string(r))
 }
 
-type SimdRegister string
+type simdRegister string
 
-func (r SimdRegister) String() string {
+func (r simdRegister) String() string {
 	return string(r)
 }
 
-func (r SimdRegister) Gas() string {
+func (r simdRegister) Gas() string {
 	return "%" + strings.ToLower(string(r[:1])) +
 		"mm" + strings.ToLower(string(r[1:]))
 }
 
 var (
 	_ Operand = Register("")
-	_ Operand = SimdRegister("")
+	_ Operand = simdRegister("")
 )
 
 const (
@@ -495,41 +495,41 @@ const (
 )
 
 const (
-	X0  = SimdRegister("X0")
-	X1  = SimdRegister("X1")
-	X2  = SimdRegister("X2")
-	X3  = SimdRegister("X3")
-	X4  = SimdRegister("X4")
-	X5  = SimdRegister("X5")
-	X6  = SimdRegister("X6")
-	X7  = SimdRegister("X7")
-	X8  = SimdRegister("X8")
-	X9  = SimdRegister("X9")
-	X10 = SimdRegister("X10")
-	X11 = SimdRegister("X11")
-	X12 = SimdRegister("X12")
-	X13 = SimdRegister("X13")
-	X14 = SimdRegister("X14")
-	X15 = SimdRegister("X15")
+	X0  = simdRegister("X0")
+	X1  = simdRegister("X1")
+	X2  = simdRegister("X2")
+	X3  = simdRegister("X3")
+	X4  = simdRegister("X4")
+	X5  = simdRegister("X5")
+	X6  = simdRegister("X6")
+	X7  = simdRegister("X7")
+	X8  = simdRegister("X8")
+	X9  = simdRegister("X9")
+	X10 = simdRegister("X10")
+	X11 = simdRegister("X11")
+	X12 = simdRegister("X12")
+	X13 = simdRegister("X13")
+	X14 = simdRegister("X14")
+	X15 = simdRegister("X15")
 )
 
 const (
-	Y0  = SimdRegister("Y0")
-	Y1  = SimdRegister("Y1")
-	Y2  = SimdRegister("Y2")
-	Y3  = SimdRegister("Y3")
-	Y4  = SimdRegister("Y4")
-	Y5  = SimdRegister("Y5")
-	Y6  = SimdRegister("Y6")
-	Y7  = SimdRegister("Y7")
-	Y8  = SimdRegister("Y8")
-	Y9  = SimdRegister("Y9")
-	Y10 = SimdRegister("Y10")
-	Y11 = SimdRegister("Y11")
-	Y12 = SimdRegister("Y12")
-	Y13 = SimdRegister("Y13")
-	Y14 = SimdRegister("Y14")
-	Y15 = SimdRegister("Y15")
+	Y0  = simdRegister("Y0")
+	Y1  = simdRegister("Y1")
+	Y2  = simdRegister("Y2")
+	Y3  = simdRegister("Y3")
+	Y4  = simdRegister("Y4")
+	Y5  = simdRegister("Y5")
+	Y6  = simdRegister("Y6")
+	Y7  = simdRegister("Y7")
+	Y8  = simdRegister("Y8")
+	Y9  = simdRegister("Y9")
+	Y10 = simdRegister("Y10")
+	Y11 = simdRegister("Y11")
+	Y12 = simdRegister("Y12")
+	Y13 = simdRegister("Y13")
+	Y14 = simdRegister("Y14")
+	Y15 = simdRegister("Y15")
 )
 
 type Label struct{ name string }
