@@ -560,8 +560,8 @@ func (function) Gas() string {
 	panic("referencing functions in unsupported opcodes is forbidden")
 }
 
-func Function(value string) Operand {
-	return function(fmt.Sprintf("·%s(SB)", value))
+func Function(name string) Operand {
+	return function(fmt.Sprintf("·%s(SB)", name))
 }
 
 func (a *Asm) op(instruction string, ops ...Operand) {
