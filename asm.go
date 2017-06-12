@@ -310,19 +310,6 @@ func Constant(value interface{}) Operand {
 	return constant(fmt.Sprintf("$%v", value))
 }
 
-type Register struct {
-	literal string
-	gas     string
-}
-
-func (r Register) String() string {
-	return r.literal
-}
-
-func (r Register) Gas() string {
-	return r.gas
-}
-
 type Scale uint
 
 const (
@@ -447,78 +434,100 @@ func Address(base Register, offsets ...interface{}) Operand {
 	panic("unexpected input")
 }
 
-type SimdRegister struct {
-	literal string
-	gas     string
+type Register string
+
+func (r Register) String() string {
+	return string(r)
 }
 
+func (r Register) Gas() string {
+	var prefix string
+	if r[0] != 'R' && (len(r) != 2 || (r[1] != 'H' && r[1] != 'L')) {
+		prefix = "r"
+	}
+
+	return "%" + prefix + strings.ToLower(string(r))
+}
+
+type SimdRegister string
+
 func (r SimdRegister) String() string {
-	return r.literal
+	return string(r)
 }
 
 func (r SimdRegister) Gas() string {
-	return r.gas
+	return "%" + strings.ToLower(string(r[:1])) +
+		"mm" + strings.ToLower(string(r[1:]))
 }
 
 var (
-	SP  = Register{literal: "SP", gas: "%rsp"}
-	AX  = Register{literal: "AX", gas: "%rax"}
-	AH  = Register{literal: "AH", gas: "%ah"}
-	AL  = Register{literal: "AL", gas: "%al"}
-	BX  = Register{literal: "BX", gas: "%rbx"}
-	BH  = Register{literal: "BH", gas: "%bh"}
-	BL  = Register{literal: "BL", gas: "%bl"}
-	CX  = Register{literal: "CX", gas: "%rcx"}
-	CH  = Register{literal: "CH", gas: "%ch"}
-	CL  = Register{literal: "CL", gas: "%cl"}
-	DX  = Register{literal: "DX", gas: "%rdx"}
-	DH  = Register{literal: "DH", gas: "%dh"}
-	DL  = Register{literal: "DL", gas: "%dl"}
-	BP  = Register{literal: "BP", gas: "%rbp"}
-	DI  = Register{literal: "DI", gas: "%rdi"}
-	SI  = Register{literal: "SI", gas: "%rsi"}
-	R8  = Register{literal: "R8", gas: "%r8"}
-	R9  = Register{literal: "R9", gas: "%r9"}
-	R10 = Register{literal: "R10", gas: "%r10"}
-	R11 = Register{literal: "R11", gas: "%r11"}
-	R12 = Register{literal: "R12", gas: "%r12"}
-	R13 = Register{literal: "R13", gas: "%r13"}
-	R14 = Register{literal: "R14", gas: "%r14"}
-	R15 = Register{literal: "R15", gas: "%r15"}
+	_ Operand = Register("")
+	_ Operand = SimdRegister("")
+)
 
-	X0  = SimdRegister{literal: "X0", gas: "%xmm0"}
-	X1  = SimdRegister{literal: "X1", gas: "%xmm1"}
-	X2  = SimdRegister{literal: "X2", gas: "%xmm2"}
-	X3  = SimdRegister{literal: "X3", gas: "%xmm3"}
-	X4  = SimdRegister{literal: "X4", gas: "%xmm4"}
-	X5  = SimdRegister{literal: "X5", gas: "%xmm5"}
-	X6  = SimdRegister{literal: "X6", gas: "%xmm6"}
-	X7  = SimdRegister{literal: "X7", gas: "%xmm7"}
-	X8  = SimdRegister{literal: "X8", gas: "%xmm8"}
-	X9  = SimdRegister{literal: "X9", gas: "%xmm9"}
-	X10 = SimdRegister{literal: "X10", gas: "%xmm10"}
-	X11 = SimdRegister{literal: "X11", gas: "%xmm11"}
-	X12 = SimdRegister{literal: "X12", gas: "%xmm12"}
-	X13 = SimdRegister{literal: "X13", gas: "%xmm13"}
-	X14 = SimdRegister{literal: "X14", gas: "%xmm14"}
-	X15 = SimdRegister{literal: "X15", gas: "%xmm15"}
+const (
+	SP  = Register("SP")
+	AX  = Register("AX")
+	AH  = Register("AH")
+	AL  = Register("AL")
+	BX  = Register("BX")
+	BH  = Register("BH")
+	BL  = Register("BL")
+	CX  = Register("CX")
+	CH  = Register("CH")
+	CL  = Register("CL")
+	DX  = Register("DX")
+	DH  = Register("DH")
+	DL  = Register("DL")
+	BP  = Register("BP")
+	DI  = Register("DI")
+	SI  = Register("SI")
+	R8  = Register("R8")
+	R9  = Register("R9")
+	R10 = Register("R10")
+	R11 = Register("R11")
+	R12 = Register("R12")
+	R13 = Register("R13")
+	R14 = Register("R14")
+	R15 = Register("R15")
+)
 
-	Y0  = SimdRegister{literal: "Y0", gas: "%ymm0"}
-	Y1  = SimdRegister{literal: "Y1", gas: "%ymm1"}
-	Y2  = SimdRegister{literal: "Y2", gas: "%ymm2"}
-	Y3  = SimdRegister{literal: "Y3", gas: "%ymm3"}
-	Y4  = SimdRegister{literal: "Y4", gas: "%ymm4"}
-	Y5  = SimdRegister{literal: "Y5", gas: "%ymm5"}
-	Y6  = SimdRegister{literal: "Y6", gas: "%ymm6"}
-	Y7  = SimdRegister{literal: "Y7", gas: "%ymm7"}
-	Y8  = SimdRegister{literal: "Y8", gas: "%ymm8"}
-	Y9  = SimdRegister{literal: "Y9", gas: "%ymm9"}
-	Y10 = SimdRegister{literal: "Y10", gas: "%ymm10"}
-	Y11 = SimdRegister{literal: "Y11", gas: "%ymm11"}
-	Y12 = SimdRegister{literal: "Y12", gas: "%ymm12"}
-	Y13 = SimdRegister{literal: "Y13", gas: "%ymm13"}
-	Y14 = SimdRegister{literal: "Y14", gas: "%ymm14"}
-	Y15 = SimdRegister{literal: "Y15", gas: "%ymm15"}
+const (
+	X0  = SimdRegister("X0")
+	X1  = SimdRegister("X1")
+	X2  = SimdRegister("X2")
+	X3  = SimdRegister("X3")
+	X4  = SimdRegister("X4")
+	X5  = SimdRegister("X5")
+	X6  = SimdRegister("X6")
+	X7  = SimdRegister("X7")
+	X8  = SimdRegister("X8")
+	X9  = SimdRegister("X9")
+	X10 = SimdRegister("X10")
+	X11 = SimdRegister("X11")
+	X12 = SimdRegister("X12")
+	X13 = SimdRegister("X13")
+	X14 = SimdRegister("X14")
+	X15 = SimdRegister("X15")
+)
+
+const (
+	Y0  = SimdRegister("Y0")
+	Y1  = SimdRegister("Y1")
+	Y2  = SimdRegister("Y2")
+	Y3  = SimdRegister("Y3")
+	Y4  = SimdRegister("Y4")
+	Y5  = SimdRegister("Y5")
+	Y6  = SimdRegister("Y6")
+	Y7  = SimdRegister("Y7")
+	Y8  = SimdRegister("Y8")
+	Y9  = SimdRegister("Y9")
+	Y10 = SimdRegister("Y10")
+	Y11 = SimdRegister("Y11")
+	Y12 = SimdRegister("Y12")
+	Y13 = SimdRegister("Y13")
+	Y14 = SimdRegister("Y14")
+	Y15 = SimdRegister("Y15")
 )
 
 type Label struct{ name string }
