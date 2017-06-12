@@ -550,14 +550,18 @@ func (l Label) Suffix(suffix string) Label {
 	return Label{fmt.Sprintf("%s_%s", l.name, suffix)}
 }
 
-type Function string
+type function string
 
-func (f Function) String() string {
-	return fmt.Sprintf("·%s(SB)", string(f))
+func (f function) String() string {
+	return string(f)
 }
 
-func (Function) Gas() string {
+func (function) Gas() string {
 	panic("referencing functions in unsupported opcodes is forbidden")
+}
+
+func Function(value string) Operand {
+	return function(fmt.Sprintf("·%s(SB)", value))
 }
 
 func (a *Asm) op(instruction string, ops ...Operand) {
