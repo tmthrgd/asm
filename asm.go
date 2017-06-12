@@ -204,22 +204,22 @@ func (invalid) Gas() string {
 
 var Invalid Operand = invalid{}
 
-type Argument struct {
+type argument struct {
 	name   string
 	offset int
 }
 
-func (s *Argument) String() string {
+func (s *argument) String() string {
 	return fmt.Sprintf("%v+%v(FP)", s.name, s.offset)
 }
 
-func (*Argument) Gas() string {
+func (*argument) Gas() string {
 	panic("referencing arguments in unsupported opcodes is forbidden")
 }
 
 func (a *Asm) Argument(name string, size int) Operand {
 	a.args += size
-	return &Argument{
+	return &argument{
 		name:   name,
 		offset: a.args - size,
 	}
@@ -235,22 +235,22 @@ func (a *Asm) SliceArgument(name string) []Operand {
 	return rpy
 }
 
-type StackOperand struct {
+type stackOperand struct {
 	name   string
 	offset int
 }
 
-func (s *StackOperand) String() string {
+func (s *stackOperand) String() string {
 	return fmt.Sprintf("%v+-%v(SP)", s.name, s.offset)
 }
 
-func (*StackOperand) Gas() string {
+func (*stackOperand) Gas() string {
 	panic("referencing stack variables in unsupported opcodes is forbidden")
 }
 
 func (a *Asm) PushStack(name string, size int) Operand {
 	a.stack += size
-	return &StackOperand{
+	return &stackOperand{
 		name:   name,
 		offset: a.stack,
 	}
