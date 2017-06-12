@@ -192,7 +192,7 @@ func (a *Asm) DataString(name string, data string) Data {
 	return Data(name)
 }
 
-type invalid struct{}
+type invalid int
 
 func (invalid) String() string {
 	panic("invalid operand")
@@ -202,7 +202,9 @@ func (invalid) Gas() string {
 	panic("invalid operand")
 }
 
-var Invalid Operand = invalid{}
+var _ Operand = invalid(0)
+
+const Invalid = invalid(0)
 
 type argument struct {
 	name   string
