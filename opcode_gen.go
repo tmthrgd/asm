@@ -14,7 +14,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 )
 
@@ -68,8 +70,15 @@ func main() {
 				continue
 			}
 
+			inputPath, err := filepath.Rel(runtime.GOROOT(), *input)
+			if err != nil {
+				inputPath = *input
+			} else {
+				inputPath = filepath.Join("$GOROOT", inputPath)
+			}
+
 			// It's on. Start with the header.
-			fmt.Fprintf(out, header, *input, *output, *pkg, *pkg)
+			fmt.Fprintf(out, header, inputPath, *output, *pkg, *pkg)
 			on = true
 			line = line[:index]
 		}
