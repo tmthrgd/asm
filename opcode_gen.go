@@ -38,14 +38,20 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer in.Close()
 
 	fd, err := os.Create(*output)
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer fd.Close()
 
 	out := bufio.NewWriter(fd)
-	defer out.Flush()
+	defer func() {
+		if err := out.Flush(); err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	var on = false
 	s := bufio.NewScanner(in)
