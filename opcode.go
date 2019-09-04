@@ -125,8 +125,6 @@ func (o Opcodes) Bswapl(ops ...Operand)            { o.a.op("BSWAPL", ops...) }
 func (o Opcodes) BSWAPL(ops ...Operand)            { o.a.op("BSWAPL", ops...) }
 func (o Opcodes) Bswapq(ops ...Operand)            { o.a.op("BSWAPQ", ops...) }
 func (o Opcodes) BSWAPQ(ops ...Operand)            { o.a.op("BSWAPQ", ops...) }
-func (o Opcodes) Bswapw(ops ...Operand)            { o.a.op("BSWAPW", ops...) }
-func (o Opcodes) BSWAPW(ops ...Operand)            { o.a.op("BSWAPW", ops...) }
 func (o Opcodes) Btcl(ops ...Operand)              { o.a.op("BTCL", ops...) }
 func (o Opcodes) BTCL(ops ...Operand)              { o.a.op("BTCL", ops...) }
 func (o Opcodes) Btcq(ops ...Operand)              { o.a.op("BTCQ", ops...) }
